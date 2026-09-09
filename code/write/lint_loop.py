@@ -18,6 +18,7 @@ from core import clients
 from core.config import MAX_LINT_FIX_ROUNDS
 from core.prompts import PROMPTS
 from write.lint import LintReport, lint
+from write.spec import format_prompt
 
 
 def count_changed_lines(before: str, after: str) -> Tuple[int, int]:
@@ -65,7 +66,8 @@ def lint_fix_loop(
         print(f"  [Lint:{label}] 수정 요청 {rounds}/{max_rounds}:")
         for line in instructions.splitlines()[:6]:
             print(f"    {line}")
-        response = clients.llm.invoke(PROMPTS["PROMPT_WRITER_LINT_FIX"].format(
+        response = clients.llm.invoke(format_prompt(
+            PROMPTS["PROMPT_WRITER_LINT_FIX"],
             research_plan=text,
             lint_report=instructions,
         ))

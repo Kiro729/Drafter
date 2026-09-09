@@ -30,6 +30,7 @@ import research.cards as research
 import research.search as search
 import research.collectors as nodes_collector
 from core.prompts import PROMPTS  # noqa: E402
+import write.spec as spec         # noqa: E402 - Writer 프롬프트의 양식 자리표시자를 채운다
 
 from core import paths                  # noqa: E402
 paths.start_run(ROOT / "tests" / "out", stamp="research")
@@ -300,12 +301,12 @@ def main():
 
     # ── 5 ───────────────────────────────────────────────────────────────────────
     section("5. downstream prompts accept the evidence; graph compiles")
-    w = PROMPTS["PROMPT_WRITER"].format(abstract=ABSTRACT, user_requests="없음", research_brief=BRIEF,
-                                        background_data=ev, method_data=ev, arxiv_data=evc)
+    w = spec.format_prompt(PROMPTS["PROMPT_WRITER"], abstract=ABSTRACT, user_requests="없음", research_brief=BRIEF,
+                           background_data=ev, method_data=ev, arxiv_data=evc)
     assert "[증거 읽는 법]" in w and "[A-01]" in w and "arXiv:2301" in w
     # Reporter 에는 정리 프롬프트가 없다 (09-09: 코드 표기 정리 + 위반 수정 루프만). 수정 프롬프트는 위반 목록만 받는다.
     assert "PROMPT_REPORTER" not in PROMPTS
-    r = PROMPTS["PROMPT_WRITER_LINT_FIX"].format(research_plan="plan", lint_report="report")
+    r = spec.format_prompt(PROMPTS["PROMPT_WRITER_LINT_FIX"], research_plan="plan", lint_report="report")
     assert "지목된 위반만 고치십시오" in r and "{background_data}" not in r and "참고문헌 항목은 쓰지 않는다" in r
     from core import graph
     g = graph.build_graph()

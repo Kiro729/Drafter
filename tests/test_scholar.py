@@ -32,6 +32,7 @@ import research.scholar as scholar
 import research.search as search
 import research.collectors as nodes_collector
 from core.prompts import PROMPTS  # noqa: E402
+import write.spec as spec         # noqa: E402 - PROMPT_WRITER 의 양식 자리표시자를 채운다
 
 from core import paths                  # noqa: E402
 paths.start_run(ROOT / "tests" / "out", stamp="scholar")
@@ -272,7 +273,8 @@ def main():
     assert not any("openalex" in c["abstract_source"] for c in cards)         # 기본 설정: arXiv 만
     assert cards[0]["citation_count"] == 120000                               # 관련도 같으면 인용 수 순
     assert "(학술 논문 (Liner 스콜라 + 초록 보강):" in ev
-    w = PROMPTS["PROMPT_WRITER"].format(abstract="a", user_requests="u", research_brief="b", background_data="x", method_data="y", arxiv_data=ev)
+    w = spec.format_prompt(PROMPTS["PROMPT_WRITER"], abstract="a", user_requests="u", research_brief="b",
+                           background_data="x", method_data="y", arxiv_data=ev)
     assert "학술 논문 카드(C-xx)만 인용한다" in w
     print(ev[:700] + "\n...")
     print("4 ok")

@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Write 단계 검증: 양식 검사기 · 수정 루프 · 참고문헌 생성 · Writer/Reporter 노드. API 키 불필요.
+"""Write 단계 검증: 양식 원본 · 검사기 · 수정 루프 · 참고문헌 생성 · Writer/Reporter 노드. API 키 불필요.
 
     python tests/test_write_stage.py
 
+0. 양식 원본(write/spec.py)이 프롬프트와 검사기의 유일한 출처인가 — 둘이 어긋나면
+   Writer 가 지킬 수 없는 규칙으로 수정 루프가 소진되므로, 이 절이 그 조합을 막는다
 1. 과거 산출물(PASS 판정본)에서 검사기가 실제 위반을 잡는가
 2. 양식을 지킨 합성 문서는 오류 0 인가 (오탐 확인)
 3. 규칙별 위반을 하나씩 심어 각각 잡히는가 (미탐 확인)
@@ -20,10 +22,12 @@ sys.path.insert(0, str(ROOT / "code"))
 os.environ.setdefault("DRAFTER_SKIP_DOTENV", "1")      # 테스트는 프로젝트 .env(키·모델·백엔드)를 읽지 않는다
 
 from core import clients
+from core.prompts import PROMPTS
 import write.lint_loop as lint_loop
 import finalize.reporter as reporter_node
 import write.writer as writer_node
 import write.lint as pl
+import write.spec as spec
 import finalize.references as refs
 
 SAMPLE = (ROOT / "tests" / "fixtures" / "sample_proposal.md").read_text(encoding="utf-8").split("---\n", 2)[2]
@@ -142,6 +146,72 @@ def make_doc(**over):
 {d['extra_section']}{d['refs']}"""
 
 
+# ── 양식(spec)에서 그대로 만들어 낸 문서 ────────────────────────────────────────
+# make_doc 은 글자수를 손으로 적어 둔 문서라 양식이 바뀌면 따라오지 않는다. 아래 생성기는
+# 모든 크기를 spec 에서 읽으므로, spec 을 고쳐도 "양식을 지킨 문서" 가 그대로 유지된다.
+# 이 문서가 오류·분량경고 없이 통과한다는 것이 곧 "프롬프트가 요구하는 대로 쓰면 검사기를
+# 통과한다"(= 지킬 수 없는 규칙이 없다)는 뜻이다.
+
+SPEC_CITES = {0: "[Ali et al., 2023]", 2: "[Ziarani et al., 2021]"}      # 인용 허용 항목에만 넣는다
+
+
+def _filler(n_chars, tail="함"):
+    return "가" * (n_chars - len(tail)) + tail
+
+
+def _split_evenly(total, n):
+    """총 글자수를 n 개로 나누고 나머지는 첫 몫에 얹는다."""
+    each = total // n
+    sizes = [each] * n
+    sizes[0] += total - each * n
+    return sizes
+
+
+def spec_item(key, extra=None):
+    """### 항목 본문: spec 이 지정한 불릿 수와 글자수를 정확히 맞춘 상위 불릿들."""
+    sizes = _split_evenly(spec.chars_of(key), spec.bullets_of(key))
+    out = []
+    for i, size in enumerate(sizes):
+        body = _filler(size)
+        if extra and i in extra:
+            body += " " + extra[i]                  # 인용 표기는 목표를 조금 넘기지만 허용 범위 안이다
+        out.append(f"- {body}")
+    return "\n".join(out)
+
+
+def spec_module(no):
+    """#### 모듈 N: spec 의 라벨·글자수를 그대로 쓴 하위 불릿 (라벨 글자수를 빼서 합계를 맞춘다)."""
+    lines = [f"#### 모듈 {no}: 모듈{no}"]
+    for label, chars in spec.MODULE_PARTS:
+        lines.append(f"- {label}")
+        lines.append(f"  - {_filler(chars - pl.count_chars(label))}")
+    return "\n".join(lines)
+
+
+def spec_summary():
+    sizes = _split_evenly(spec.SUMMARY_CHARS, spec.SUMMARY_SENTENCES)
+    return " ".join(_filler(size, tail="다.") for size in sizes)
+
+
+def spec_doc():
+    parts = [f"# {_filler(spec.TITLE_CHARS, tail='')}", ""]
+    for n, (sec_key, _sec_chars, subs) in enumerate(spec.SECTION_SPEC):
+        parts += [f"## {n}. {sec_key}" if subs else f"## {sec_key}", ""]
+        if not subs:                                            # 연구 요약 — 섹션 자체가 하나의 항목
+            parts += [spec_summary(), ""]
+            continue
+        for sub_key, _chars, _n_bullets in subs:
+            parts += [f"### {sub_key}", ""]
+            if sub_key == spec.PROPOSAL_KEY:
+                sizes = _split_evenly(spec.OVERVIEW_CHARS, spec.OVERVIEW_BULLETS)
+                parts += ["\n".join(f"- {_filler(s)}" for s in sizes), ""]
+                parts += [x for i in range(1, spec.MODULE_COUNT + 1) for x in (spec_module(i), "")]
+            else:
+                extra = SPEC_CITES if sub_key in spec.CITATION_ALLOWED_IN else None
+                parts += [spec_item(sub_key, extra=extra), ""]
+    return "\n".join(parts).rstrip() + "\n"
+
+
 class FakeResponse:
     def __init__(self, c):
         self.content = c
@@ -167,7 +237,97 @@ class FakeChatModel:
         raise AssertionError(prompt[:200])
 
 
+CONTENT_VARS = dict(abstract="A", user_requests="B", research_brief="C",
+                    background_data="D", method_data="E", arxiv_data="F")
+
+# (프롬프트 ID, 본문 변수) — 세 프롬프트 모두 spec 값으로 채워져야 한다
+WRITE_PROMPTS = [
+    ("PROMPT_WRITER", CONTENT_VARS),
+    ("PROMPT_WRITER_REVIEW", {**CONTENT_VARS, "research_plan": "P", "editor_feedback": "Q", "round": 1}),
+    ("PROMPT_WRITER_LINT_FIX", {"research_plan": "P", "lint_report": "R"}),
+]
+
+_FORM_ITEM_RE = re.compile(r"^\s*●\s*(.+?)\s*—\s*([\d,]+)자")            # "  ● 연구 주제(문제 정의) — 350자, ..."
+_FORM_PART_RE = re.compile(r"^\s*\d+\)\s*.+?—\s*(각\s*)?([\d,]+)자")      # "  1) 대상 도메인의 ... — 100자, ..."
+
+
+def form_item_breakdowns(rendered_writer_prompt):
+    """[작성양식] 의 '● 항목 — N자' 와 그 아래 'N) … — N자' 세부 배분을 {항목: (항목 목표, [세부])} 로."""
+    block = rendered_writer_prompt.split("[작성양식", 1)[1]
+    out, current = {}, None
+    for line in block.splitlines():
+        m = _FORM_ITEM_RE.match(line)
+        if m:
+            current = pl._norm_key(m.group(1))
+            out[current] = (int(m.group(2).replace(",", "")), [])
+            continue
+        if line.lstrip().startswith("■"):
+            current = None
+            continue
+        m = _FORM_PART_RE.match(line)
+        if m and current:
+            n = int(m.group(2).replace(",", ""))
+            out[current][1].append(n * spec.MODULE_COUNT if m.group(1) else n)   # "각 250자" → 모듈 수만큼
+    return out
+
+
 def main():
+    # ── 0 ───────────────────────────────────────────────────────────────────────
+    section("0. one form spec: prompts and linter read the same numbers")
+    spec._self_check()                                          # 임포트 때 이미 돌지만 명시적으로 한 번 더
+    assert spec.BODY_CHARS == sum(c for _, c, _ in spec.SECTION_SPEC) and spec.TOTAL_CHARS == spec.TITLE_CHARS + spec.BODY_CHARS
+    # 검사기는 자기 사본을 갖지 않고 spec 을 그대로 쓴다
+    for name in ("SECTION_SPEC", "MODULE_LABELS", "MODULE_CHARS", "MODULE_COUNT", "OVERVIEW_CHARS",
+                 "OVERVIEW_BULLETS", "SUMMARY_SENTENCES", "TITLE_CHARS", "TITLE_MAX_CHARS",
+                 "BODY_CHARS", "TOTAL_CHARS", "CITATION_ALLOWED_IN", "MAX_SAME_CITATION",
+                 "FORBIDDEN_WORDS", "REFERENCE_KEYS"):
+        assert getattr(pl, name) == getattr(spec, name), f"lint.{name} 이 spec 과 다름"
+    assert pl._FORBIDDEN_NAMES == spec.FORBIDDEN_WORDS + list(spec.FORBIDDEN_VAGUE_PARTIAL)
+    assert len(pl._FORBIDDEN_RES) == len(pl._FORBIDDEN_NAMES)
+
+    # 프롬프트에는 숫자가 아니라 자리표시자가 있어야 한다 (있어야 spec 을 고칠 때 함께 바뀐다)
+    raw_writer = PROMPTS["PROMPT_WRITER"]
+    for placeholder in ("{chars[전체]:,}", "{chars[연구 요약]}", "{chars[연구 주제]}", "{bullets[연구 주제]}",
+                        "{chars[제안 방법]}", "{chars[개요]}", "{chars[모듈]}", "{module_headings}",
+                        "{summary_sentences}", "{length_tolerance_pct}", "{forbidden_emphasis}"):
+        assert placeholder in raw_writer, f"PROMPT_WRITER 에 {placeholder} 자리표시자가 없음"
+    assert "{length_rules}" in PROMPTS["PROMPT_WRITER_REVIEW"]
+    assert "3,440" not in raw_writer and "1,580" not in raw_writer      # 옛 하드코딩 값이 남아 있지 않은지
+
+    # 세 프롬프트가 spec 값으로 빠짐없이 채워지는가 (자리표시자 누락은 KeyError 로 즉시 실패)
+    rendered = {}
+    for prompt_id, content in WRITE_PROMPTS:
+        rendered[prompt_id] = spec.format_prompt(PROMPTS[prompt_id], **content)
+        assert "{" not in rendered[prompt_id].replace("{}", ""), f"{prompt_id} 에 채워지지 않은 중괄호가 남음"
+    writer_text = rendered["PROMPT_WRITER"]
+    assert f"전체 {spec.TOTAL_CHARS:,}자" in writer_text
+    assert f"● 연구 주제(문제 정의) — {spec.chars_of('연구 주제')}자, 상위 불릿 {spec.bullets_of('연구 주제')}개" in writer_text
+    assert f"● 제안 방법 — {spec.PROPOSAL_CHARS}자" in writer_text
+    assert f"#### 모듈 {spec.MODULE_COUNT}: (모듈명)" in writer_text
+    assert spec.render_length_rules() in rendered["PROMPT_WRITER_REVIEW"]
+    assert " → ".join(spec.MODULE_LABELS) in rendered["PROMPT_WRITER_LINT_FIX"]
+    assert f"{spec.MAX_SAME_CITATION + 1}회 이상" in rendered["PROMPT_WRITER_LINT_FIX"]
+
+    # [작성양식] 에 산문으로 남긴 세부 배분(100자 + 180자 + 70자 …)이 항목 목표와 맞는가
+    breakdowns = form_item_breakdowns(writer_text)
+    assert breakdowns, "작성양식에서 항목을 찾지 못함"
+    for item_key, (target, parts) in breakdowns.items():
+        assert target == spec.chars_of(item_key), f"'{item_key}' 양식 표기 {target} ≠ spec {spec.chars_of(item_key)}"
+        if parts:
+            assert sum(parts) == target, f"'{item_key}' 세부 배분 합 {sum(parts)} ≠ 항목 목표 {target}"
+    print(f"항목 {len(breakdowns)}개 · 세부 배분 합 일치:",
+          {k: sum(v[1]) for k, v in breakdowns.items() if v[1]})
+
+    # 핵심: spec 그대로 쓴 문서는 오류도 분량·불릿 경고도 없다 = 지킬 수 없는 규칙이 없다
+    sd = spec_doc()
+    rs = pl.lint(sd, CARDS)
+    print("spec 준수 문서:", rs.summary(), "| 본문", rs.metrics["total_chars"], f"자 (목표 {spec.BODY_CHARS})")
+    assert rs.ok, rs.to_instructions()
+    soft = [i for i in rs.warnings if i.code in ("length_over", "length_under", "length_total",
+                                                 "bullets_over", "bullets_under", "summary_sentences", "title_long")]
+    assert not soft, [i.render() for i in soft]
+    print("0 ok")
+
     # ── 1 ───────────────────────────────────────────────────────────────────────
     section("1. lint on a past PASS output catches real violations")
     r = pl.lint(SAMPLE, CARDS)
@@ -188,7 +348,7 @@ def main():
     assert any(i.code == "length_over" and i.where == "연구 요약" for i in r.warnings)
     assert not any(i.code == "length_over" and i.where == "연구 요약" for i in r.errors)
     assert sum(1 for i in r.errors if i.code == "length_over" and "모듈" in i.where) == 3
-    assert r.metrics["total_chars"] > pl.TOTAL_CHARS * 1.20                                            # 전체 +22% → 오류
+    assert r.metrics["total_chars"] > pl.BODY_CHARS * 1.20                                             # 본문 +20% 초과 → 오류
     print("1 ok")
 
     # ── 2 ───────────────────────────────────────────────────────────────────────
@@ -197,7 +357,7 @@ def main():
     r = pl.lint(good, CARDS)
     print(r.summary(), "| total", r.metrics["total_chars"])
     assert r.ok, r.to_instructions()
-    assert abs(r.metrics["total_chars"] - pl.TOTAL_CHARS) / pl.TOTAL_CHARS <= 0.15
+    assert abs(r.metrics["total_chars"] - pl.BODY_CHARS) / pl.BODY_CHARS <= 0.15
     assert r.metrics["unique_citations"] == 2
     # 카드가 없으면 인용은 '확인 불가' 경고만
     r0 = pl.lint(good, [])

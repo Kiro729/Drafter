@@ -31,7 +31,7 @@ code/
   core/                 config(튠 값) · paths(폴더 배치·실행 폴더) · state · clients · prompts(로더) · graph · output
   scope/                nodes.py
   research/             supervisor · collectors · cards(출처 카드) · search(Tavily·arXiv) · scholar(Liner)
-  write/                writer · lint(양식 검사기) · lint_loop(수정 루프·변경 줄 가드)
+  write/                spec(양식 원본 — 글자수·불릿 수·라벨) · writer · lint(양식 검사기) · lint_loop(수정 루프·변경 줄 가드)
   review/               nodes.py (reviewer_a · reviewer_b · editor)
   finalize/             diagram(도해 노드) · diagram_agent(Archify 서브그래프) · reporter · cleanup · references · cover(표지) · export_pdf
     presentation/       PDF 렌더러 (build.py · assets/style.css)
@@ -52,3 +52,8 @@ API 키 없이 모의 LLM·모의 검색으로 전 단계를 검증한다. 명�
 
 튠 값은 `code/core/config.py` 한 곳에 있다 (검색 라운드, 심사 라운드, 양식 검사 강도, 도해 수리 횟수 등).
 `OPENAI_MODEL`, `SCHOLAR_BACKEND`, `CHROME_PATH`, `ARCHIFY_HOME` 은 `.env` 또는 환경변수로 덮어쓸 수 있다.
+
+계획서 **양식**(섹션·항목·글자수·불릿 수·모듈 라벨·금지 표현·인용 규칙)은 `code/write/spec.py` 한 곳에 있다.
+Writer 프롬프트는 `{chars[연구 주제]}` 같은 자리표시자로 같은 값을 받고 양식 검사기(`write/lint.py`)도 여기서 읽으므로,
+숫자를 고칠 곳은 이 파일 하나다. 프롬프트의 `.md` 에 숫자를 직접 적으면 검사기와 어긋나 Writer 가 지킬 수 없는
+지적을 받게 되므로 적지 않는다. 상위 항목 글자수는 하위 항목의 합으로 계산되고, 임포트 시점에 정합성을 검사한다.

@@ -24,6 +24,7 @@ from core import paths
 from research.supervisor import supervisor
 from core.output import initial_state   # noqa: E402
 from core.prompts import PROMPTS   # noqa: E402
+import write.spec as spec          # noqa: E402 - PROMPT_WRITER 의 양식 자리표시자를 채운다
 
 paths.start_run(ROOT / "tests" / "out", stamp="scope")   # brief.md 등 산출물을 tests/out/scope/ 에
 
@@ -180,7 +181,9 @@ def main():
     PROMPTS["PROMPT_RESEARCH_BRIEF"].format(abstract="a", user_requests="u", problem="p", solution="s", clarification_qna="q")
     assert "PROMPT_SCOPE_APPLY_EDITS" not in PROMPTS
     PROMPTS["PROMPT_SUPERVISOR"].format(abstract="a", user_requests="u", research_brief="b")
-    w = PROMPTS["PROMPT_WRITER"].format(abstract="a", user_requests="u", research_brief="b", background_data="x", method_data="y", arxiv_data="z")
+    # PROMPT_WRITER 의 양식 값은 write/spec.py 가 채운다 (spec.format_prompt). 본문 변수만 여기서 준다.
+    w = spec.format_prompt(PROMPTS["PROMPT_WRITER"], abstract="a", user_requests="u", research_brief="b",
+                           background_data="x", method_data="y", arxiv_data="z")
     assert "브리프 항목의 사용" in w
     print("4 ok")
 

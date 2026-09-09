@@ -271,3 +271,40 @@
 - 안내 문구 수정: 그림이 없을 때 "캡션만 표기됨" 이라 했으나 실제로는 그림 불릿을 넣지 않으므로 캡션도 없다 → "그림 없이 조판" 으로.
 - 테스트: 실패 스펙을 `tests/fixtures/corridor_conflict.workflow.json` 으로 보존, `test_diagram_agent` F 절(폴백 렌더, LLM 추가 호출 0).
 
+### 9.8 양식 단일 원본 — `code/write/spec.py` (신규) (09-09)
+
+**문제**: 계획서 양식의 숫자가 두 곳에 있었다 — `write/lint.py` 의 `SECTION_SPEC`·`TOTAL_CHARS` 등과
+`PROMPT_WRITER`·`PROMPT_WRITER_REVIEW`·`PROMPT_WRITER_LINT_FIX` 의 `[작성양식]`·`[분량 규칙]` 본문(같은 값이 세 벌).
+한쪽만 고치면 Writer 는 프롬프트대로 쓰는데 검사기는 다른 기준으로 지적하므로 **고칠 수 없는 위반**이 되고,
+수정 루프가 `MAX_LINT_FIX_ROUNDS` 를 다 쓰고 `(unresolved)` 로 끝난다 (LLM 호출 2회 낭비).
+실제로 두 개의 잠재 불일치가 있었다: 제안 방법 930 ≠ 개요 160 + 모듈 3×250 = 910, 전체 3,440 vs 검사기가 재는 본문 합 3,400.
+
+**조치**
+
+- `code/write/spec.py` 신규 — 양식의 유일한 출처. 섹션·항목·글자수·불릿 수, 모듈 라벨·분량,
+  연구 요약 문장 수, 금지 표현, 인용 규칙(허용 항목·반복 한도), 분량 허용 오차.
+  - 상위 항목 글자수는 **하위 항목의 합으로 계산**한다 (부모·자식이 어긋난 목표를 갖는 조합을 없앤다).
+  - `BODY_CHARS`(검사기가 재는 본문 = 3,380) 와 `TOTAL_CHARS`(프롬프트가 알리는 전체 = 제목 40 + 본문 = 3,420) 를 구분.
+    검사기는 `# 연구명` 줄을 세지 않으므로 종전의 3,440 기준은 약 40자만큼 느슨했다.
+  - `_self_check()` 가 임포트 시점에 정합성을 검사한다: 섹션 = 항목 합, 제안 방법 = 개요 + 모듈,
+    모듈 = 하위 3항목 합, **세부 목표 불릿 = 모듈 수 = 학술적 기여 불릿**(프롬프트 [섹션 간 정합성 제약] 1·2 가 요구),
+    인용 허용 항목이 양식에 실재. 어긋나면 임포트가 실패한다.
+  - `prompt_vars()` / `format_prompt()` / `render_length_rules()` — 프롬프트에 값을 주입한다.
+- `write/lint.py` 는 자기 사본을 버리고 `spec` 에서 임포트(하류 `finalize/cleanup.py`·`references.py` 용으로 재수출).
+  하드코딩되어 있던 메시지 문구(`40자 내외`, `지정 5문장`, `모듈 1·2·3`, `연구 필요성에만 허용`, 모듈 라벨)도 spec 에서 만든다.
+- 프롬프트 세 개는 숫자를 지우고 자리표시자로 바꿨다: `{chars[연구 주제]}` `{bullets[연구 주제]}` `{per_bullet[세부 목표]}`
+  `{module_headings}` `{module_labels_arrow}` `{summary_sentences}` `{length_tolerance_pct}` `{forbidden_emphasis}` `{length_rules}` 등.
+  `PROMPT_WRITER_REVIEW` 의 `[분량 규칙]` 목록은 `render_length_rules()` 가 통째로 만든다.
+  자리표시자가 빠지면 `KeyError` 로 즉시 실패한다 — 어긋난 프롬프트가 조용히 LLM 에 나가지 않는다.
+- 호출 지점: `write/writer.py`(초안·재작성), `write/lint_loop.py`(위반 수정) → `spec.format_prompt(...)`.
+  프롬프트를 직접 포맷하던 테스트 3곳(`test_scope_stage`·`test_research`·`test_scholar`)도 같이 바꿨다.
+- 테스트: `test_write_stage` 0절 신규 —
+  (1) `lint` 의 상수가 `spec` 과 동일, (2) `.md` 에 숫자가 아니라 자리표시자가 있음, (3) 세 프롬프트가 빠짐없이 렌더됨,
+  (4) `[작성양식]` 에 산문으로 남긴 세부 배분(100+180+70 …)의 합이 항목 목표와 일치,
+  (5) **spec 값만 읽어 만든 문서가 오류·분량경고 0** — 프롬프트가 요구하는 대로 쓰면 검사기를 통과한다는 뜻.
+  `spec` 을 고치면 (5)의 문서도 함께 바뀌므로, 양식 변경이 검사기와 어긋나면 이 절이 실패한다.
+
+**확인**: 오프라인 7개 스위트 전부 통과. `학술적 기여` 230 → 250 으로 한 줄만 고쳤을 때
+섹션 합(350→370)·본문(3,380→3,400)·전체(3,420→3,440)·프롬프트의 `각 75자 → 각 80자` 가 모두 따라오고 테스트도 그대로 통과함을 확인.
+`MODULE_COUNT`·`PROPOSAL_CHARS`·`SUMMARY_SENTENCES` 를 어긋나게 두면 `_self_check()` 가 `AssertionError` 로 막는 것도 확인.
+

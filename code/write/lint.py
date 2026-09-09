@@ -6,6 +6,10 @@ LLM 은 글자수를 세지 못하고 Reviewer 프롬프트는 분량을 심사�
 한 건도 분량 규칙을 지키지 못했다. 여기서 측정한 값을 Writer 에게 수정 지시로 돌려준다
 (lint_loop.lint_fix_loop). 순수 함수이므로 LLM·네트워크 없이 테스트할 수 있다.
 
+양식의 숫자·라벨은 이 모듈이 아니라 write/spec.py 에 있다. Writer 프롬프트도 같은 곳에서 값을
+받으므로 검사기와 프롬프트가 어긋난 규칙을 말하는 일이 없다 — 어긋나면 Writer 가 지킬 수 없는
+지적이 수정 루프를 다 소진한다. 양식을 고칠 때는 write/spec.py 만 고친다.
+
 검사 항목
   구조   제목(#), ## 섹션·### 항목의 존재·순서·명칭, 모듈 1~3 과 각 모듈의 하위 불릿 3개
          (입력과 출력의 정의 → 핵심 메커니즘 → 채택 근거), 양식 밖 소제목
@@ -30,33 +34,35 @@ from core.config import (
     LINT_LENGTH_WARN,
     LINT_TOTAL_ERROR,
 )
+# 양식(섹션·글자수·불릿 수·라벨·금지 표현)은 write/spec.py 하나에만 있다. Writer 프롬프트도 같은
+# 곳에서 값을 받으므로, 검사기와 프롬프트가 서로 다른 숫자를 말하는 일이 생기지 않는다.
+# 아래는 이 모듈을 통해 임포트하는 곳(finalize/cleanup.py, finalize/references.py)을 위한 재수출이다.
+from write.spec import (               # noqa: F401 - 재수출
+    BODY_CHARS,
+    CITATION_ALLOWED_IN,
+    FORBIDDEN_VAGUE_PARTIAL,
+    FORBIDDEN_WORDS,
+    MAX_SAME_CITATION,
+    MODULE_CHARS,
+    MODULE_COUNT,
+    MODULE_LABELS,
+    OVERVIEW_BULLETS,
+    OVERVIEW_CHARS,
+    REFERENCE_KEYS,
+    SECTION_SPEC,
+    SUMMARY_SENTENCES,
+    TITLE_CHARS,
+    TITLE_MAX_CHARS,
+    TOTAL_CHARS,
+)
 
-# ── 양식 (PROMPT_WRITER [작성양식]·[분량 규칙] 과 같은 값) ──────────────────────────
-
-TOTAL_CHARS = 3440
-TITLE_MAX_CHARS = 60          # "40자 내외" → 이 이상이면 경고
-
-#: (## 섹션 키, 섹션 글자수, [(### 항목 키, 글자수, 상위 불릿 수)])
-SECTION_SPEC: List[Tuple[str, int, List[Tuple[str, int, Optional[int]]]]] = [
-    ("연구 요약", 280, []),
-    ("연구 배경", 770, [("연구 주제", 350, 3), ("연구 필요성", 420, 4)]),
-    ("연구 목표", 420, [("최종 목표", 100, 1), ("세부 목표", 320, 3)]),
-    ("연구 방법론", 1580, [("데이터 수집", 350, 3), ("제안 방법", 930, None), ("실험 및 평가", 300, 4)]),
-    ("기대 효과 및 활용 방안", 350, [("학술적 기여", 230, 3), ("실용적 활용 방안", 120, 2)]),
-]
-OVERVIEW_BULLETS = 2          # 제안 방법 개요 불릿 수
-OVERVIEW_CHARS = 160
-MODULE_COUNT = 3
-MODULE_CHARS = 250
-MODULE_LABELS = ("입력과 출력의 정의", "핵심 메커니즘", "채택 근거")
-SUMMARY_SENTENCES = 5
-REFERENCE_KEYS = ("참고문헌", "References")
-CITATION_ALLOWED_IN = ("연구 필요성",)
-MAX_SAME_CITATION = 2
-
-FORBIDDEN_WORDS = ["획기적인", "매우 중요한", "최초의", "혁신적인", "전례 없는", "다양한", "상당한", "개선된"]
-_FORBIDDEN_RES = [re.compile(re.escape(w)) for w in FORBIDDEN_WORDS] + [re.compile(r"여러(?=\s|가지|개\b|번\b|명\b|편\b)")]
-_FORBIDDEN_NAMES = FORBIDDEN_WORDS + ["여러"]
+#: 문맥 제한이 필요한 금지 표현 — 뒤에 오는 말에 따라 정상 용법이 있어 전체 일치로 잡지 않는다
+_PARTIAL_PATTERNS = {"여러": r"여러(?=\s|가지|개\b|번\b|명\b|편\b)"}
+assert set(FORBIDDEN_VAGUE_PARTIAL) <= set(_PARTIAL_PATTERNS), \
+    f"문맥 제한 금지 표현에 정규식이 없음: {sorted(set(FORBIDDEN_VAGUE_PARTIAL) - set(_PARTIAL_PATTERNS))}"
+_FORBIDDEN_RES = ([re.compile(re.escape(w)) for w in FORBIDDEN_WORDS]
+                  + [re.compile(_PARTIAL_PATTERNS[w]) for w in FORBIDDEN_VAGUE_PARTIAL])
+_FORBIDDEN_NAMES = FORBIDDEN_WORDS + list(FORBIDDEN_VAGUE_PARTIAL)
 
 CITE_RE = re.compile(r"\[([A-Z][A-Za-z\-']+)(?:\s+et\s+al\.)?,?\s*(\d{4})\]")
 CITE_NOYEAR_RE = re.compile(r"\[([A-Z][A-Za-z\-']+)(?:\s+et\s+al\.)?\]")
@@ -151,7 +157,8 @@ class LintReport:
         total = self.metrics.get("total_chars")
         if total is not None:
             lines.append("")
-            lines.append(f"측정: 전체 {total}자 (목표 {TOTAL_CHARS}, 참고문헌·제목 제외, 공백 제외)")
+            lines.append(f"측정: 본문 {total}자 (목표 {BODY_CHARS} = 전체 {TOTAL_CHARS} − 연구명 {TITLE_CHARS}, "
+                         "참고문헌·제목 제외, 공백 제외)")
         return "\n".join(lines) if lines else "위반 없음"
 
 
@@ -291,7 +298,8 @@ def lint(text: str, cards: Optional[List[Dict[str, Any]]] = None) -> LintReport:
     if not title:
         issues.append(Issue("missing_title", "error", "연구명", "'# 연구명' 제목 줄이 없음. 첫 줄에 # 로 연구명을 둔다"))
     elif count_chars(title) > TITLE_MAX_CHARS:
-        issues.append(Issue("title_long", "warning", "연구명", f"{count_chars(title)}자 (40자 내외 권장)", _short(title)))
+        issues.append(Issue("title_long", "warning", "연구명",
+                            f"{count_chars(title)}자 ({TITLE_CHARS}자 내외 권장, 상한 {TITLE_MAX_CHARS}자)", _short(title)))
 
     # 섹션 존재·순서·양식 밖 섹션
     expected_keys = [k for k, _, _ in SECTION_SPEC]
@@ -397,15 +405,16 @@ def lint(text: str, cards: Optional[List[Dict[str, Any]]] = None) -> LintReport:
 
         _check_length(where_sec, n_sec, sec_chars, issues, section_level=True)
 
+    # 합계는 섹션 본문만 센다 (# 연구명 줄은 어느 섹션에도 속하지 않는다) → 기준은 BODY_CHARS
     report.metrics["total_chars"] = total_chars
-    total_err = int(TOTAL_CHARS * (1 + LINT_TOTAL_ERROR))
-    total_warn = int(TOTAL_CHARS * (1 + LINT_LENGTH_WARN))
+    total_err = int(BODY_CHARS * (1 + LINT_TOTAL_ERROR))
+    total_warn = int(BODY_CHARS * (1 + LINT_LENGTH_WARN))
     if total_chars > total_err:
         issues.append(Issue("length_total", "error", "전체",
-                            f"{total_chars}자 (목표 {TOTAL_CHARS}, 상한 {total_err}). 초과가 큰 항목부터 압축"))
+                            f"본문 {total_chars}자 (목표 {BODY_CHARS}, 상한 {total_err}). 초과가 큰 항목부터 압축"))
     elif total_chars > total_warn:
         issues.append(Issue("length_total", "warning", "전체",
-                            f"{total_chars}자 (목표 {TOTAL_CHARS}, 허용 {total_warn}). 가능하면 압축"))
+                            f"본문 {total_chars}자 (목표 {BODY_CHARS}, 허용 {total_warn}). 가능하면 압축"))
 
     # 문체·표기 (연구 요약·참고문헌 제외 본문)
     for where, is_top, b in body_bullets:
@@ -432,10 +441,11 @@ def lint(text: str, cards: Optional[List[Dict[str, Any]]] = None) -> LintReport:
         counts[(surname.lower(), year)] = counts.get((surname.lower(), year), 0) + 1
         if sub_key not in CITATION_ALLOWED_IN:
             issues.append(Issue("citation_outside", "error", sub_key,
-                                f"[{surname} et al., {year}] 인용은 연구 필요성에만 허용. 인용 표기만 삭제(문장은 유지)", q))
+                                f"[{surname} et al., {year}] 인용은 {' · '.join(CITATION_ALLOWED_IN)}에만 허용. "
+                                "인용 표기만 삭제(문장은 유지)", q))
     for (surname, year), n in counts.items():
         if n > MAX_SAME_CITATION:
-            issues.append(Issue("citation_repeat", "error", "연구 필요성",
+            issues.append(Issue("citation_repeat", "error", CITATION_ALLOWED_IN[0],
                                 f"[{surname.title()} et al., {year}] {n}회 (최대 {MAX_SAME_CITATION}회). 초과분의 인용 표기만 삭제"))
     if citation_hits:
         if not cards:
@@ -444,7 +454,7 @@ def lint(text: str, cards: Optional[List[Dict[str, Any]]] = None) -> LintReport:
         else:
             for (surname, year) in counts:
                 if find_card(surname, year, cards) is None:
-                    issues.append(Issue("citation_unknown", "error", "연구 필요성",
+                    issues.append(Issue("citation_unknown", "error", CITATION_ALLOWED_IN[0],
                                         f"[{surname.title()} et al., {year}] 는 학술 카드에 없음. 카드에 있는 논문(저자·연도)으로 바꾸거나 인용을 삭제하고 주장 범위를 좁힘"))
     report.metrics["citations"] = len(citation_hits)
     report.metrics["unique_citations"] = len(counts)
@@ -497,7 +507,8 @@ def _check_summary(sec: Node, issues: List[Issue]) -> None:
     n = len(re.findall(r"다\.", text))
     if abs(n - SUMMARY_SENTENCES) > 1:
         issues.append(Issue("summary_sentences", "warning", sec.title,
-                            f"'~다.' 문장 {n}개 (지정 5문장: 문제 정의 → 기존 한계 → 제안 → 검증 → 기대 결과)"))
+                            f"'~다.' 문장 {n}개 (지정 {SUMMARY_SENTENCES}문장: "
+                            "문제 정의 → 기존 한계 → 제안 → 검증 → 기대 결과)"))
     if re.search(r"(함|임|음)\.?\s*$", text.strip(), flags=re.M) and n == 0:
         issues.append(Issue("summary_style", "error", sec.title, "연구 요약이 개조식 종결. '~한다/~이다' 평서문으로"))
     del sentences
@@ -522,10 +533,14 @@ def _check_proposal(sub: Node, where: str, issues: List[Issue], report: LintRepo
             issues.append(Issue("module_structure", "error", f"{where} > {m.title}", "모듈 소제목은 '모듈 N: (모듈명)' 형태"))
             continue
         numbers.append(int(mm.group(1)))
+    expected_numbers = list(range(1, MODULE_COUNT + 1))
     if len(modules) != MODULE_COUNT:
-        issues.append(Issue("missing_module", "error", where, f"모듈 {len(modules)}개 (지정 {MODULE_COUNT}개: 모듈 1·2·3)"))
-    elif numbers != [1, 2, 3]:
-        issues.append(Issue("module_structure", "error", where, f"모듈 번호가 {numbers}. 1, 2, 3 순서로"))
+        issues.append(Issue("missing_module", "error", where,
+                            f"모듈 {len(modules)}개 (지정 {MODULE_COUNT}개: "
+                            f"모듈 {' · '.join(map(str, expected_numbers))})"))
+    elif numbers != expected_numbers:
+        issues.append(Issue("module_structure", "error", where,
+                            f"모듈 번호가 {numbers}. {', '.join(map(str, expected_numbers))} 순서로"))
 
     for m in modules:
         mwhere = f"{where} > {m.title}"
@@ -534,9 +549,11 @@ def _check_proposal(sub: Node, where: str, issues: List[Issue], report: LintRepo
         _check_length(mwhere, n_mod, MODULE_CHARS, issues)
         leads = [re.sub(r"[:：\s]+$", "", b) for b in top_bullets(m.own_text())]
         if len(leads) != len(MODULE_LABELS) or any(not lead.startswith(lbl) for lead, lbl in zip(leads, MODULE_LABELS)):
+            n_labels = len(MODULE_LABELS)
             issues.append(Issue("module_structure", "error", mwhere,
-                                f"상위 불릿이 {leads} — 정확히 3개 '입력과 출력의 정의 → 핵심 메커니즘 → 채택 근거' 순서여야 함. "
-                                "네 번째 항목은 삭제하거나 세 항목에 합침"))
+                                f"상위 불릿이 {leads} — 정확히 {n_labels}개 "
+                                f"'{' → '.join(MODULE_LABELS)}' 순서여야 함. "
+                                f"그 밖의 항목은 삭제하거나 {n_labels}개 항목에 합침"))
         if m.children:
             for c in m.children:
                 issues.append(Issue("extra_section", "error", f"{mwhere} > {c.title}", "모듈 아래에 소제목을 두지 않음"))

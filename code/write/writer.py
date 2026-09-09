@@ -8,6 +8,7 @@ from core import clients
 from core.prompts import PROMPTS
 from core.state import ResearchPlanState
 from write.lint_loop import lint_fix_loop
+from write.spec import format_prompt
 
 
 def writer(state: ResearchPlanState) -> ResearchPlanState:
@@ -25,11 +26,13 @@ def writer(state: ResearchPlanState) -> ResearchPlanState:
         method_data=state["method_data"],
         arxiv_data=state["arxiv_data"],
     )
+    # 양식(글자수·불릿 수·라벨)은 write/spec.py 가 채운다 — 프롬프트에 숫자를 직접 적지 않는다
     if is_rewrite:
-        prompt = PROMPTS["PROMPT_WRITER_REVIEW"].format(
+        prompt = format_prompt(
+            PROMPTS["PROMPT_WRITER_REVIEW"],
             research_plan=state["research_plan"], editor_feedback=state["editor_feedback"], round=review_round, **common)
     else:
-        prompt = PROMPTS["PROMPT_WRITER"].format(**common)
+        prompt = format_prompt(PROMPTS["PROMPT_WRITER"], **common)
     response = clients.llm.invoke(prompt)
 
     # 양식 검사(코드) → 위반만 고치는 LLM 호출 → 재검사. 인용 실재 여부는 학술 카드와 대조한다.
