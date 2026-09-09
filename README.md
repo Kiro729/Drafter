@@ -39,7 +39,7 @@ prompts/                단계별 프롬프트 (scope · research · write · re
 vendor/archify/         Archify v2.17 (서드파티, Node CLI)
 scripts/                단독 실행: preflight · run_research_stage · run_archify_agent · export_pdf
 tests/                  테스트 스위트 (tests/README.md)
-docs/                   변경 기록(CHANGES_2026-09.md) · 에이전트 설명서(agents/) · 도해 설명서(plotting-agent.md)
+docs/                   변경 기록(CHANGES_2026-09.md) · 에이전트 설명서(agents/) · 도해 설명서(plotting-agent.md) · 결과물 예시(samples/)
 runtime/<실행시각>/     research/ · figures/ · pdf_build/  (실행마다 새 폴더)
 final/                  research_paper_<실행시각>.md / .pdf
 ```
