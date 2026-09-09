@@ -1,0 +1,252 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "연구 프레임워크",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "database": {
+          "label": "공개 사용자-상품 자료"
+        },
+        "backend": {
+          "label": "제안 모듈 및 학습"
+        },
+        "messagebus": {
+          "label": "점수·보상 산출"
+        },
+        "security": {
+          "label": "위험 및 경계 검증"
+        },
+        "external": {
+          "label": "비교 모형"
+        },
+        "frontend": {
+          "label": "성능 평가 결과"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "data",
+      "label": "자료",
+      "variant": "normal"
+    },
+    {
+      "id": "module",
+      "label": "모듈",
+      "variant": "normal"
+    },
+    {
+      "id": "learning",
+      "label": "학습",
+      "variant": "normal"
+    },
+    {
+      "id": "verify",
+      "label": "검증",
+      "variant": "exception"
+    }
+  ],
+  "mainPath": [
+    "source_data",
+    "split_graph",
+    "sparse_representation",
+    "augmentation_reward",
+    "adversarial_learning",
+    "performance_result"
+  ],
+  "nodes": [
+    {
+      "id": "source_data",
+      "lane": "data",
+      "col": 0,
+      "type": "database",
+      "label": "공개 자료",
+      "sublabel": "BanglishRev",
+      "tag": "Daraz Bangladesh",
+      "width": 136
+    },
+    {
+      "id": "split_graph",
+      "lane": "data",
+      "col": 1,
+      "type": "backend",
+      "label": "분할 그래프",
+      "sublabel": "267만 건",
+      "tag": "밀도 0.0022%",
+      "width": 136
+    },
+    {
+      "id": "sparse_representation",
+      "lane": "module",
+      "col": 2,
+      "type": "messagebus",
+      "label": "희소 후보표현",
+      "sublabel": "GAE",
+      "tag": "초기 선호도",
+      "width": 136
+    },
+    {
+      "id": "augmentation_reward",
+      "lane": "module",
+      "col": 3,
+      "type": "messagebus",
+      "label": "증강 보상계산",
+      "sublabel": "3수준 감쇠",
+      "tag": "인기도·신뢰도",
+      "width": 136
+    },
+    {
+      "id": "adversarial_learning",
+      "lane": "learning",
+      "col": 4,
+      "type": "backend",
+      "label": "신뢰 적대학습",
+      "sublabel": "held-out",
+      "tag": "생성자·판별기",
+      "width": 136
+    },
+    {
+      "id": "comparison_model",
+      "lane": "data",
+      "col": 4,
+      "type": "external",
+      "label": "비교 모형",
+      "sublabel": "기본 G2R",
+      "tag": "균일·동적 샘플링",
+      "width": 136
+    },
+    {
+      "id": "ablation_risk",
+      "lane": "verify",
+      "col": 4,
+      "type": "security",
+      "label": "제거 위험검증",
+      "sublabel": "false negative",
+      "tag": "증강·인기도·신뢰도",
+      "width": 136
+    },
+    {
+      "id": "boundary_proximity",
+      "lane": "verify",
+      "col": 5,
+      "type": "security",
+      "label": "경계 근접도",
+      "sublabel": "절대 차이",
+      "tag": "판별 임계값",
+      "width": 136
+    },
+    {
+      "id": "performance_result",
+      "lane": "learning",
+      "col": 5,
+      "type": "frontend",
+      "label": "성능 평가결과",
+      "sublabel": "Recall@50",
+      "tag": "NDCG@50",
+      "width": 136
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "source_data",
+      "to": "split_graph",
+      "label": "상호작용",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "e2",
+      "from": "split_graph",
+      "to": "sparse_representation",
+      "label": "학습 분할",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "e3",
+      "from": "sparse_representation",
+      "to": "augmentation_reward",
+      "label": "후보 점수",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "e4",
+      "from": "split_graph",
+      "to": "augmentation_reward",
+      "label": "인기도",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "e5",
+      "from": "augmentation_reward",
+      "to": "adversarial_learning",
+      "label": "증강 보상",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "e6",
+      "from": "adversarial_learning",
+      "to": "performance_result",
+      "label": "추천 점수",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "e7",
+      "from": "split_graph",
+      "to": "performance_result",
+      "label": "평가 양성",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e8",
+      "from": "comparison_model",
+      "to": "performance_result",
+      "label": "비교 결과",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "e9",
+      "from": "adversarial_learning",
+      "to": "ablation_risk",
+      "label": "생성 음성",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "e10",
+      "from": "ablation_risk",
+      "to": "performance_result",
+      "label": "제거 결과",
+      "variant": "security",
+      "role": "branch",
+      "bias": 0.25
+    },
+    {
+      "id": "e11",
+      "from": "adversarial_learning",
+      "to": "boundary_proximity",
+      "label": "판별 점수",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "e12",
+      "from": "boundary_proximity",
+      "to": "performance_result",
+      "label": "근접도",
+      "variant": "security",
+      "role": "branch"
+    }
+  ]
+}

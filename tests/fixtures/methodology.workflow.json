@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "연구 절차",
+    "visual_preset": "classic",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "external":   { "label": "선행 연구" },
+        "backend":    { "label": "연구 단계" },
+        "database":   { "label": "수집 자료" },
+        "messagebus": { "label": "분석 및 처리" },
+        "security":   { "label": "타당성 검증" },
+        "frontend":   { "label": "연구 산출물" }
+      }
+    }
+  },
+  "lanes": [
+    { "id": "design",  "label": "설계" },
+    { "id": "collect", "label": "자료 수집" },
+    { "id": "analyze", "label": "분석" },
+    { "id": "verify",  "label": "타당성 검증", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "p1", "label": "이론 및 설계", "fromCol": 0, "toCol": 1 },
+    { "id": "p2", "label": "조사 실시", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "p3", "label": "분석 및 해석", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["lit", "model", "instrument", "survey", "coding", "findings"],
+  "semanticChecks": {
+    "allowedRoots": ["lit"],
+    "requiredPaths": [{ "from": "lit", "to": "findings" }]
+  },
+  "nodes": [
+    { "id": "lit",         "lane": "design",  "col": 0, "type": "external",   "label": "문헌 검토",      "sublabel": "선행연구 42편", "width": 136 },
+    { "id": "model",       "lane": "design",  "col": 1, "type": "backend",    "label": "연구모형 도출",   "sublabel": "가설 H1~H3", "width": 136 },
+    { "id": "instrument",  "lane": "design",  "col": 2, "type": "backend",    "label": "측정도구 개발",   "sublabel": "설문 문항 구성", "width": 136 },
+    { "id": "pilot",       "lane": "collect", "col": 2, "type": "backend",    "label": "예비조사",        "sublabel": "n=30", "width": 136 },
+    { "id": "survey",      "lane": "collect", "col": 3, "type": "backend",    "label": "본조사",          "sublabel": "n=420", "tag": "층화 표집", "width": 136 },
+    { "id": "dataset",     "lane": "collect", "col": 4, "type": "database",   "label": "응답 데이터셋",   "sublabel": "결측 처리", "width": 136 },
+    { "id": "coding",      "lane": "analyze", "col": 4, "type": "messagebus", "label": "통계 분석",       "sublabel": "SPSS · R", "width": 136 },
+    { "id": "findings",    "lane": "analyze", "col": 5, "type": "frontend",   "label": "연구 결과",       "sublabel": "가설 검정 결과", "width": 136 },
+    { "id": "reliability", "lane": "verify",  "col": 3, "type": "security",   "label": "신뢰도 검증",     "sublabel": "Cronbach α", "width": 136 },
+    { "id": "validity",    "lane": "verify",  "col": 4, "type": "security",   "label": "타당도 검증",     "sublabel": "확인적 요인분석", "width": 136 },
+    { "id": "revise",      "lane": "verify",  "col": 5, "type": "messagebus", "label": "문항 재구성",     "sublabel": "기준 미달 시", "width": 136 }
+  ],
+  "edges": [
+    { "id": "e1",  "from": "lit",         "to": "model",      "label": "이론적 배경",    "variant": "default" },
+    { "id": "e2",  "from": "model",       "to": "instrument", "label": "구성개념 조작화", "variant": "emphasis" },
+    { "id": "e3",  "from": "instrument",  "to": "pilot",      "label": "문항 검토",      "variant": "dashed" },
+    { "id": "e4",  "from": "pilot",       "to": "reliability","label": "예비 응답 분석",  "variant": "security" },
+    { "id": "e5",  "from": "reliability", "to": "validity",   "label": "요인구조 확인",   "variant": "security" },
+    { "id": "e6",  "from": "validity",    "to": "revise",     "label": "기준 미달",      "variant": "security", "role": "error" },
+    { "id": "e7",  "from": "revise",      "to": "instrument", "label": "재구성",         "variant": "dashed", "role": "return" },
+    { "id": "e8",  "from": "instrument",  "to": "survey",     "label": "확정 문항",      "variant": "emphasis" },
+    { "id": "e9",  "from": "survey",      "to": "dataset",    "label": "응답 수집",      "variant": "dashed" },
+    { "id": "e10", "from": "dataset",     "to": "coding",     "label": "분석 투입",      "variant": "dashed" },
+    { "id": "e11", "from": "survey",      "to": "coding",     "label": "본조사 완료",    "variant": "emphasis" },
+    { "id": "e12", "from": "coding",      "to": "findings",   "label": "결과 도출",      "variant": "emphasis" }
+  ]
+}

@@ -1,0 +1,41 @@
+# Drafter -- Python dependencies
+#   install: pip install -r requirements.txt
+#
+# NOTE: keep this file ASCII-only. pip decodes requirements.txt with the system
+# locale encoding (cp949 on Korean Windows), so non-ASCII comments break install.
+#
+# Not installable via pip -- install separately:
+#   Node.js >= 18   runs the Archify CLI (vendor/archify/bin/archify.mjs) that
+#                   validates and renders the framework diagram. Check: node --version
+#   Chromium        used by Playwright to export the diagram (SVG/PNG) and to
+#                   typeset the PDF. Install once with:  playwright install chromium
+#   Without Node or Chromium the pipeline still runs; the proposal is produced
+#   without a figure and the reason is printed in the Run Summary.
+#   Preflight check:  python scripts/preflight.py
+#
+# API keys: put them in .env next to main.py (see .env.example) or export them.
+#   OPENAI_API_KEY   required   LLM (code/core/clients.py)
+#   OPENAI_MODEL     optional   LLM model name, default gpt-5.1 (config.DEFAULT_LLM_MODEL)
+#   TAVILY_API_KEY   required   web search for Collector A/B and Reviewer A
+#   LINER_API_KEY    optional   Liner Scholar Search for Collector C (code/research/scholar.py).
+#                               If set: Liner discovery + arXiv abstract enrichment. If unset: arXiv only.
+#                               Force one mode with SCHOLAR_BACKEND=liner|arxiv (default auto).
+#   S2_API_KEY       optional   only if "semanticscholar" is added to config.ABSTRACT_SOURCES
+#   OPENALEX_MAILTO  optional   only if "openalex" is added to config.ABSTRACT_SOURCES
+
+# --- required (python main.py fails at import time without these) ---
+langgraph>=1.0.1              # core/graph.py, finalize/diagram_agent.py -- StateGraph, MemorySaver
+langchain-core>=0.3.79        # core/state.py + nodes -- AIMessage / HumanMessage
+langchain-openai>=0.3.35      # core/clients.py -- ChatOpenAI
+tavily-python>=0.7.15         # core/clients.py, research/search.py -- TavilyClient (module name: tavily)
+arxiv>=2.1.0                  # research/search.py, research/scholar.py -- arXiv search / id lookup
+requests>=2.31.0              # research/scholar.py -- Liner Scholar Search, OpenAlex, Semantic Scholar
+
+# --- framework diagram export (finalize/diagram_agent.py) ---
+playwright>=1.40.0            # headless Chromium: window.Archify.exportMenu.run('svg' | 'png')
+
+# --- PDF typesetting (finalize/export_pdf.py -> finalize/presentation/build.py) ---
+markdown-it-py>=3.0.0
+beautifulsoup4>=4.11.0
+pypdf>=4.0.0
+pdfplumber>=0.11.0

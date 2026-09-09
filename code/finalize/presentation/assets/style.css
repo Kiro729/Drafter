@@ -1,0 +1,484 @@
+/* ============================================================
+   연구계획서 PDF 스타일시트
+   - 대상 렌더러: headless Chromium (Playwright page.pdf)
+   - 용지: A4 / 본문 좌우 여백 22mm
+   ============================================================ */
+
+:root {
+  --ink:        #1b1f23;   /* 제목 */
+  --text:       #272d34;   /* 본문 */
+  --muted:      #6d7681;   /* 보조 텍스트 */
+  --faint:      #99a2ab;   /* 라벨, 캡션 */
+  --accent:     #2b4257;   /* 단일 강조색 (딥 슬레이트) */
+  --accent-soft:#5b7488;
+  --rule:       #dfe4e9;   /* 얇은 괘선 */
+  --rule-strong:#c3ccd4;
+  --panel:      #f7f9fa;   /* 옅은 배경 */
+  --panel-line: #e6ebef;
+
+  --serif: "Noto Serif CJK KR", "Noto Serif KR", serif;
+  --sans:  "Noto Sans CJK KR", "Noto Sans KR", sans-serif;
+  --mono:  "DejaVu Sans Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--serif);
+  font-size: 10.3pt;
+  line-height: 1.80;
+  color: var(--text);
+  /* 한국어: 어절 보존 + 긴 URL만 분리 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ------------------------------------------------------------
+   1. 표지
+   ------------------------------------------------------------ */
+@page cover { size: A4; margin: 0; }
+
+.cover {
+  page: cover;
+  width: 210mm;
+  height: 297mm;
+  padding: 34mm 24mm 20mm;
+  display: flex;
+  flex-direction: column;
+}
+
+.cover-rule-top {
+  border-top: 2.4pt solid var(--accent);
+  border-bottom: 0.5pt solid var(--rule-strong);
+  height: 3.4mm;
+  margin-bottom: 9mm;
+}
+
+.cover-kicker {
+  font-family: var(--sans);
+  font-size: 8.6pt;
+  letter-spacing: .22em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 14mm;
+}
+.cover-kicker .sep { color: var(--faint); margin: 0 .7em; font-weight: 400; }
+
+.cover-title {
+  font-family: var(--sans);
+  font-size: 24pt;
+  font-weight: 700;
+  line-height: 1.42;
+  letter-spacing: -.015em;
+  color: var(--ink);
+  margin: 0 0 7mm;
+  max-width: 148mm;
+}
+
+.cover-subtitle {
+  font-family: var(--sans);
+  font-size: 10.5pt;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 0 0 11mm;
+  max-width: 140mm;
+}
+
+.keywords { margin-bottom: 13mm; }
+.keywords .kw {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 8.4pt;
+  color: var(--accent);
+  border: 0.6pt solid #cfd9e0;
+  background: #fff;
+  border-radius: 1.2mm;
+  padding: 1.1mm 2.6mm;
+  margin: 0 1.4mm 1.6mm 0;
+  letter-spacing: .01em;
+}
+
+/* 표지 안의 연구 요약 */
+.cover-abstract {
+  background: var(--panel);
+  border-top: 0.6pt solid var(--panel-line);
+  border-bottom: 0.6pt solid var(--panel-line);
+  border-left: 1.8pt solid var(--accent);
+  padding: 6.5mm 7mm 6.5mm 7mm;
+  margin-bottom: auto;
+}
+.cover-abstract h2 {
+  font-family: var(--sans);
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: var(--accent);
+  margin: 0 0 3.5mm;
+  border: 0; padding: 0;
+}
+.cover-abstract p {
+  margin: 0;
+  font-size: 9.5pt;
+  line-height: 1.82;
+  text-align: justify;
+  color: #333a41;
+}
+
+/* 표지 하단 메타 */
+.cover-meta {
+  margin-top: 12mm;
+  border-top: 0.6pt solid var(--rule);
+  padding-top: 5mm;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 10mm;
+  row-gap: 2.6mm;
+}
+.cover-meta .row { display: flex; gap: 5mm; align-items: baseline; }
+.cover-meta .k {
+  font-family: var(--sans);
+  font-size: 8.2pt;
+  letter-spacing: .1em;
+  color: var(--faint);
+  min-width: 22mm;
+  flex-shrink: 0;
+}
+.cover-meta .v {
+  font-family: var(--sans);
+  font-size: 9.2pt;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------
+   2. 목차
+   ------------------------------------------------------------ */
+@page toc { size: A4; margin: 26mm 24mm 22mm; }
+.toc { page: toc; }
+
+.toc-head {
+  font-family: var(--sans);
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: .3em;
+  color: var(--ink);
+  padding-bottom: 4mm;
+  border-bottom: 1.4pt solid var(--accent);
+  margin: 0 0 9mm;
+}
+
+.toc ol { list-style: none; margin: 0; padding: 0; }
+
+.toc .lv1 {
+  display: flex;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 10.6pt;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 6.5mm;
+}
+.toc .lv2 {
+  display: flex;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 9.6pt;
+  font-weight: 400;
+  color: #4b545d;
+  margin-top: 2.6mm;
+  padding-left: 8mm;
+}
+.toc .lv3 {
+  display: flex;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 9pt;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 1.9mm;
+  padding-left: 16mm;
+}
+.toc .no  { min-width: 11mm; flex-shrink: 0; color: var(--accent); }
+.toc .lv2 .no, .toc .lv3 .no { min-width: 12mm; color: var(--accent-soft); }
+.toc .ttl { flex-shrink: 0; }
+.toc .dots {
+  flex: 1;
+  margin: 0 2.5mm;
+  border-bottom: 0.5pt dotted var(--rule-strong);
+  transform: translateY(-1mm);
+}
+.toc .pg { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* ------------------------------------------------------------
+   3. 본문 페이지
+   ------------------------------------------------------------ */
+/* 머리글을 쓰지 않으므로 위 여백을 좌우와 맞춰 22mm 로 둔다.
+   build.py 의 MARGIN_TOP / MARGIN_BOT / MARGIN_SIDE 와 반드시 일치해야 한다. */
+@page body-page { size: A4; margin: 22mm 22mm 20mm; }
+.body { page: body-page; }
+
+/* 장(chapter)은 항상 새 페이지에서 시작 */
+.body .chapter { break-before: page; }
+.body .chapter:first-of-type { break-before: auto; }
+
+/* 한 페이지에 들어가는 소절만 통째로 유지 (build.py 가 측정해서 keep 을 붙임) */
+.body .subsection { break-inside: auto; }
+.body .subsection.keep { break-inside: avoid; page-break-inside: avoid; }
+.body .subsection + .subsection { margin-top: 0; }
+
+/* --- 대제목 (h2) --- */
+.body h2 {
+  font-family: var(--sans);
+  font-size: 14.5pt;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  margin: 13mm 0 6mm;
+  padding-bottom: 3.2mm;
+  border-bottom: 1.2pt solid var(--accent);
+  break-after: avoid;
+  display: flex;
+  align-items: baseline;
+  gap: 4mm;
+}
+.body .chapter:first-of-type h2 { margin-top: 0; }
+.body h2 .num {
+  font-size: 12pt;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+/* --- 중제목 (h3) --- */
+.body h3 {
+  font-family: var(--sans);
+  font-size: 11.2pt;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 9mm 0 3.6mm;
+  break-after: avoid;
+  display: flex;
+  align-items: baseline;
+  gap: 3mm;
+}
+.body h3 .num {
+  font-size: 9.6pt;
+  font-weight: 600;
+  color: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 최상위 불릿 --- */
+.body ul.l1 { list-style: none; margin: 0 0 3mm; padding: 0; }
+.body ul.l1 > li {
+  position: relative;
+  padding-left: 5.2mm;
+  margin-bottom: 2.4mm;
+  text-align: justify;
+}
+.body ul.l1 > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2.05mm;
+  width: 1.5mm;
+  height: 1.5mm;
+  background: var(--accent);
+}
+
+/* 하위 목록을 가진 항목은 '라벨'로 취급 */
+.body ul.l1 > li.has-sub { padding-left: 0; margin-bottom: 4.2mm; }
+.body ul.l1 > li.has-sub::before { display: none; }
+.body .lead {
+  display: block;
+  font-family: var(--sans);
+  font-size: 9.8pt;
+  font-weight: 700;
+  color: #33414d;
+  margin-bottom: 1.8mm;
+  padding-left: 3mm;
+  border-left: 2pt solid var(--rule-strong);
+  break-after: avoid;
+}
+
+/* 머리 텍스트가 라벨이 아니라 완결된 문장인 경우: 일반 본문처럼 */
+.body .lead.lead-sentence {
+  position: relative;
+  font-family: var(--serif);
+  font-size: 10.3pt;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.80;
+  text-align: justify;
+  border-left: 0;
+  padding-left: 5.2mm;
+  margin-bottom: 2.2mm;
+}
+.body .lead.lead-sentence::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2.05mm;
+  width: 1.5mm;
+  height: 1.5mm;
+  background: var(--accent);
+}
+.body ul.l1 > li.has-sub:has(> .lead-sentence) > ul.l2 { margin-left: 5.2mm; }
+
+/* --- 2단계 불릿 --- */
+.body ul.l2 {
+  list-style: none;
+  margin: 0 0 0 3mm;
+  padding: 0 0 0 4.6mm;
+  border-left: 0.7pt solid var(--rule);
+}
+.body ul.l2 > li {
+  position: relative;
+  padding-left: 4.2mm;
+  margin-bottom: 1.7mm;
+  font-size: 9.9pt;
+  line-height: 1.78;
+  color: #3c444c;
+  text-align: justify;
+}
+.body ul.l2 > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2.15mm;
+  width: 1.5mm;
+  height: 0.7pt;
+  background: var(--accent-soft);
+}
+
+/* --- 모듈 카드 (h4) --- */
+.body .module {
+  border: 0.7pt solid var(--panel-line);
+  background: #fcfdfd;
+  border-radius: 1.2mm;
+  padding: 5.5mm 6mm 4mm;
+  margin: 5mm 0 6mm;
+  break-inside: avoid;
+}
+.body .module h4 {
+  font-family: var(--sans);
+  font-size: 10.6pt;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 4mm;
+  padding-bottom: 2.6mm;
+  border-bottom: 0.7pt solid var(--panel-line);
+  break-after: avoid;
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+}
+.body .module h4 .mnum {
+  display: inline-block;
+  font-size: 7.8pt;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: #fff;
+  background: var(--accent);
+  border-radius: .9mm;
+  padding: 0.9mm 2.2mm;
+  flex-shrink: 0;
+}
+.body .module ul.l1 { margin-bottom: 0; }
+.body .module ul.l1 > li:last-child { margin-bottom: 0; }
+
+/* --- 그림 --- */
+.body figure {
+  margin: 6mm 0 7mm;
+  text-align: center;
+  /* Chromium 에서 그림과 캡션이 갈라지지 않도록 구·신 속성을 함께 지정 */
+  break-inside: avoid;
+  page-break-inside: avoid;
+  display: table;
+  width: 100%;
+}
+.body figure img {
+  max-width: 100%;
+  height: auto;
+  border: 0.7pt solid var(--panel-line);
+  border-radius: 1mm;
+}
+.body figcaption {
+  break-before: avoid;
+  page-break-before: avoid;
+  display: table-caption;
+  caption-side: bottom;
+  font-family: var(--sans);
+  font-size: 8.8pt;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-top: 3mm;
+  padding: 0 8mm;
+}
+.body figcaption b { color: var(--accent); font-weight: 700; }
+
+/* --- 인용 배지 --- */
+.body .cite {
+  font-family: var(--sans);
+  font-size: 8.2pt;
+  color: var(--accent);
+  background: #eef2f5;
+  border-radius: .9mm;
+  padding: 0.5mm 1.6mm;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* --- 표 (일반 대비용) --- */
+.body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.4pt;
+  margin: 4mm 0 5mm;
+  break-inside: avoid;
+}
+.body th {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 9pt;
+  text-align: left;
+  color: var(--ink);
+  background: var(--panel);
+  border-top: 1pt solid var(--accent);
+  border-bottom: 0.7pt solid var(--rule-strong);
+  padding: 2.4mm 3mm;
+}
+.body td {
+  border-bottom: 0.5pt solid var(--rule);
+  padding: 2.4mm 3mm;
+  vertical-align: top;
+}
+
+/* --- 참고문헌 --- */
+.body .references { list-style: none; margin: 0; padding: 0; }
+.body .references li {
+  font-size: 9.3pt;
+  line-height: 1.72;
+  color: #3c444c;
+  padding-left: 7mm;
+  text-indent: -7mm;
+  margin-bottom: 2.6mm;
+  word-break: break-all;
+}
+.body .references li .n {
+  font-family: var(--sans);
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 2mm;
+}
+.body .references a { color: var(--accent-soft); text-decoration: none; }
+
+/* --- 페이지 나눔 제어 --- */
+.body h2, .body h3, .body h4, .body .lead { break-after: avoid; }
+.body li { break-inside: avoid; }
+.body figure, .body table { break-inside: avoid; }
+.body p { orphans: 2; widows: 2; }
