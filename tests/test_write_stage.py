@@ -389,6 +389,9 @@ def main():
         "heading_annotation": make_doc().replace("## 1. 연구 배경", "## 1. 연구 배경 — 770자"),
         "template_marker": make_doc().replace("### 연구 주제", "  ● 연구 주제(문제 정의) — 350자"),
         "card_id_citation": make_doc(topic=bullets(3, 116, extra={0: "[A-06, A-07]"})),
+        # 양식의 자리표시자를 제목으로 그대로 둔 경우 (2026-09-10 실제 실행에서 관측)
+        "title_placeholder": make_doc(title="# 연구명"),
+        "title_stray": make_doc(title="# 연구명\n\n노출 로그 기반 거짓 음성 완화 추천 연구"),
     }
     for code, doc in cases.items():
         got = codes(pl.lint(doc, CARDS))
@@ -401,6 +404,13 @@ def main():
     assert any(i.code == "length_under" for i in pl.lint(make_doc(goal_final=bullets(1, 40)), CARDS).warnings)
     assert any(i.code == "summary_sentences" for i in pl.lint(make_doc(summary="가" * 270 + "다."), CARDS).warnings)
     assert any(i.code == "title_long" for i in pl.lint(make_doc(title="# " + "가" * 70), CARDS).warnings)
+    stray = pl.lint(cases["title_stray"], CARDS)
+    assert {"title_placeholder", "title_stray"} <= set(codes(stray))
+    assert "노출 로그 기반" in next(i.message for i in stray.errors if i.code == "title_placeholder")   # 회수할 줄을 지목
+    assert pl.stray_lead(make_doc()) == "" and pl.stray_lead(cases["title_stray"]).startswith("노출 로그")
+    assert pl.lint(make_doc(title="# " + "가" * (pl.TITLE_MIN_CHARS - 1)), CARDS).errors            # 너무 짧은 제목도 오류
+    fix_prompt = PROMPTS["PROMPT_WRITER_LINT_FIX"]                                  # 수정 루프가 자리표시자를 되살리지 않아야 한다
+    assert "'# 연구명' 이어야" not in fix_prompt and "제목 자리표시자" in fix_prompt
     ann = codes(pl.lint(cases["heading_annotation"], CARDS))
     assert "missing_section" not in ann and "extra_section" not in ann, ann        # 주석이 붙어도 섹션은 인식하고 주석만 지목
     assert pl._norm_key("3.2 제안 방법 (Proposed Method)") == "제안 방법"

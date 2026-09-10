@@ -53,6 +53,8 @@ from write.spec import (               # noqa: F401 - 재수출
     SUMMARY_SENTENCES,
     TITLE_CHARS,
     TITLE_MAX_CHARS,
+    TITLE_MIN_CHARS,
+    TITLE_PLACEHOLDERS,
     TOTAL_CHARS,
 )
 
@@ -98,7 +100,8 @@ class Issue:
 
 
 _CODE_LABEL = {
-    "missing_title": "제목 없음", "title_long": "제목 길이",
+    "missing_title": "제목 없음", "title_long": "제목 길이", "title_placeholder": "제목 자리표시자",
+    "title_stray": "제목 아래 본문",
     "missing_section": "섹션 누락", "extra_section": "양식 밖 소제목", "section_order": "섹션 순서",
     "missing_module": "모듈 누락", "module_structure": "모듈 구조",
     "bullets_over": "불릿 초과", "bullets_under": "불릿 부족",
@@ -178,6 +181,22 @@ class Node:
     def all_text(self) -> str:
         parts = [self.own_text()] + [c.all_text() for c in self.children]
         return "\n".join(p for p in parts if p)
+
+
+def stray_lead(text: str) -> str:
+    """'# 제목' 줄과 첫 '## 섹션' 사이에 남은 본문 줄. 양식상 비어 있어야 한다.
+
+    파서는 이 구간의 줄을 어느 섹션에도 넣지 못해 버린다. 그래서 검사기가 원문에서 따로 찾아야
+    "연구명을 제목 줄이 아니라 그 아래에 쓴" 경우를 잡을 수 있다.
+    """
+    m = re.search(r"^#\s+.*$", text or "", re.M)
+    if not m:
+        return ""
+    rest = text[m.end():]
+    nxt = re.search(r"^##\s", rest, re.M)
+    lead = rest[: nxt.start()] if nxt else rest
+    lines = [ln.strip() for ln in lead.splitlines() if ln.strip()]
+    return lines[0] if lines else ""
 
 
 def _norm_key(title: str) -> str:
@@ -295,11 +314,27 @@ def lint(text: str, cards: Optional[List[Dict[str, Any]]] = None) -> LintReport:
     title, roots = parse_document(text)
 
     # 제목
+    lead = stray_lead(text)
     if not title:
-        issues.append(Issue("missing_title", "error", "연구명", "'# 연구명' 제목 줄이 없음. 첫 줄에 # 로 연구명을 둔다"))
-    elif count_chars(title) > TITLE_MAX_CHARS:
-        issues.append(Issue("title_long", "warning", "연구명",
-                            f"{count_chars(title)}자 ({TITLE_CHARS}자 내외 권장, 상한 {TITLE_MAX_CHARS}자)", _short(title)))
+        issues.append(Issue("missing_title", "error", "연구명",
+                            "첫 줄에 '# ' 로 시작하는 연구명 줄이 없음. 실제 연구 제목을 쓴다"))
+    else:
+        bare = title.strip().strip("()[]（）").strip()
+        n_title = count_chars(title)
+        if bare in TITLE_PLACEHOLDERS or n_title < TITLE_MIN_CHARS:
+            # 양식의 자리표시자를 그대로 두었거나 제목이 비어 있다시피 하다. 표지 제목이 "연구명" 으로 찍힌다.
+            recover = (f' 바로 아래 줄 "{_short(lead)}" 이 실제 연구명이면 그 줄을 "# " 뒤로 올리고 아래 줄은 지운다.'
+                       if lead else "")
+            issues.append(Issue("title_placeholder", "error", "연구명",
+                                f"제목이 양식의 이름이거나 너무 짧음({n_title}자, 최소 {TITLE_MIN_CHARS}자). "
+                                f"'# ' 뒤에 실제 연구명을 {TITLE_CHARS}자 내외 명사구로 쓴다.{recover}", _short(title)))
+        elif n_title > TITLE_MAX_CHARS:
+            issues.append(Issue("title_long", "warning", "연구명",
+                                f"{n_title}자 ({TITLE_CHARS}자 내외 권장, 상한 {TITLE_MAX_CHARS}자)", _short(title)))
+    if lead:
+        issues.append(Issue("title_stray", "error", "연구명",
+                            "제목 줄과 '## 연구 요약' 사이에 본문이 있음. 연구명이면 제목 줄로 올리고, 아니면 해당 항목으로 옮긴다",
+                            _short(lead)))
 
     # 섹션 존재·순서·양식 밖 섹션
     expected_keys = [k for k, _, _ in SECTION_SPEC]

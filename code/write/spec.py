@@ -29,6 +29,9 @@ from core.config import LINT_LENGTH_WARN
 
 TITLE_CHARS = 40                                  # "40자 내외", 1행
 TITLE_MAX_CHARS = int(TITLE_CHARS * 1.5)          # 60. 이 이상이면 경고 (오류는 아니다)
+TITLE_MIN_CHARS = int(TITLE_CHARS * 0.25)         # 10. 이 미만이면 오류 (자리표시자를 그대로 둔 경우)
+#: 양식의 자리표시자. 이 말이 그대로 제목이 되면 실제 연구명이 빠진 것이다 (2026-09-10 관측).
+TITLE_PLACEHOLDERS = ("연구명", "제목", "연구 제목", "연구계획서", "연구개발계획서")
 
 SUMMARY_CHARS = 280
 SUMMARY_SENTENCES = 5                             # 문제 정의 → 기존 한계 → 제안 → 검증 → 기대 결과
@@ -102,7 +105,8 @@ def _self_check() -> None:
             assert n_bullets is None or n_bullets >= 1, f"'{sub_key}' 불릿 수가 1 미만"
     assert BODY_CHARS == sum(c for _, c, _ in SECTION_SPEC), "BODY_CHARS 는 섹션 글자수의 합이어야 함"
     assert TOTAL_CHARS == TITLE_CHARS + BODY_CHARS, "TOTAL_CHARS = 연구명 + 본문"
-    assert TITLE_MAX_CHARS >= TITLE_CHARS, "제목 경고 상한이 목표보다 작음"
+    assert TITLE_MAX_CHARS >= TITLE_CHARS >= TITLE_MIN_CHARS >= 1, "제목 길이 기준이 어긋남"
+    assert "연구명" in TITLE_PLACEHOLDERS, "양식이 쓰는 자리표시자가 목록에 없음"
     assert SUMMARY_SENTENCES >= 1, "연구 요약 문장 수가 1 미만"
     # [섹션 간 정합성 제약] 1·2 — 세부 목표 · 모듈 · 학술적 기여가 일대일로 대응해야 한다.
     # 셋 중 하나만 바꾸면 프롬프트의 대응 지시가 지킬 수 없는 규칙이 된다.
