@@ -8,6 +8,7 @@
 3. Reviewer B 는 검색을 전혀 하지 않고, 프롬프트에 AI 티 표현 기준이 있다
 4. Editor 판정은 코드가 두 VERDICT 로 결정한다 (LLM 의 FINAL_VERDICT 와 달라도)
 5. Editor 프롬프트는 한국어 정리 규칙과 계획서 본문을 담는다
+6. 라운드마다 심사 기록(두 피드백 원문·Editor 원문·심사한 본문)이 실행 폴더에 저장된다
 """
 import os
 import sys
@@ -19,9 +20,12 @@ os.environ.setdefault("DRAFTER_SKIP_DOTENV", "1")      # 테스트는 프로젝�
 
 from core import clients
 from core import config
+from core import paths
 import review.nodes as nr
 import research.search as search
 from core.prompts import PROMPTS   # noqa: E402
+
+paths.start_run(ROOT / "tests" / "out", stamp="review_stage")   # 심사 기록을 tests/out 에 (프로젝트 runtime/ 는 건드리지 않는다)
 
 PLAN = "# 연구명\n\n## 1. 연구 배경\n\n### 연구 필요성\n\n- 기존 접근은 사용자 기대를 모델링하지 못함 [Ali et al., 2023]\n"
 
@@ -133,6 +137,25 @@ def main():
     upd = nr.editor({k: v for k, v in st.items() if not k.endswith("_passed")})
     assert upd["review_passed"] is False
     print("4 ok")
+
+    # ── 6 ───────────────────────────────────────────────────────────────────────
+    section("6. each round is saved to the run folder: both reviews, the editor's raw output, the reviewed plan")
+    out = paths.review_dir()
+    for f in out.glob("*.md"):
+        f.unlink()
+    clients.llm = FakeLLM(a_verdict="REVISE", b_verdict="PASS", editor_verdict="REVISE")
+    nr.editor({**state, "review_round": 2, "review_a_passed": False, "review_b_passed": True,
+               "review_a_history": ["VERDICT: REVISE\nFEEDBACK:\nA 의 지적 원문"],
+               "review_b_history": ["VERDICT: PASS\nFEEDBACK:\nB 의 지적 원문"], "rewrite_count": 1})
+    record = (out / "round_2.md").read_text(encoding="utf-8")
+    assert "Reviewer A (내용): REVISE" in record and "Reviewer B (가독성): PASS" in record
+    assert "코드 판정: REVISE" in record
+    assert "A 의 지적 원문" in record and "B 의 지적 원문" in record          # 미리보기가 아니라 원문
+    assert "INTEGRATED_FEEDBACK:" in record                                  # Editor 는 잘라내기 전 원문을 남긴다
+    assert (out / "plan_round_2.md").read_text(encoding="utf-8") == PLAN     # 그 라운드가 심사한 본문
+    assert sorted(p.name for p in out.glob("*.md")) == ["plan_round_2.md", "round_2.md"]
+    print("saved:", out.relative_to(ROOT))
+    print("6 ok")
 
     # ── 5 ───────────────────────────────────────────────────────────────────────
     section("5. Editor prompt: Korean, grouped by section, carries the plan")

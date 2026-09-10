@@ -44,3 +44,18 @@ INTEGRATED_FEEDBACK:
 ## 프롬프트 참조
 
 `prompts/` → `PROMPT_EDITOR` / 구현 `code/review/nodes.py`
+
+## 심사 기록 (09-10)
+
+라운드가 끝날 때마다 Editor 가 그 라운드의 기록을 이번 실행 폴더에 남긴다. 실행이 끝난 뒤에 왜 통과했는지, 또는 왜 통과하지 못했는지를 확인하기 위한 것이다.
+
+| 파일 | 내용 |
+|---|---|
+| `runtime/<실행시각>/review/round_N.md` | 세 판정(A·B·코드), Reviewer A 답변 원문, Reviewer B 답변 원문, Editor 답변 원문 |
+| `runtime/<실행시각>/review/plan_round_N.md` | 그 라운드가 심사한 계획서 본문 |
+
+콘솔에는 종전대로 판정과 통합 피드백 앞 300자만 찍힌다. 전문은 이 파일에 있다.
+본문을 라운드마다 따로 두는 이유는 두 가지다. 재작성이 지적을 실제로 반영했는지 `plan_round_1.md` 와 `plan_round_2.md` 를 비교해 볼 수 있고,
+초안은 최종본에 덮여 사라지므로 이 파일이 유일한 기록이 된다.
+저장에 실패해도 심사는 계속 진행된다.
+

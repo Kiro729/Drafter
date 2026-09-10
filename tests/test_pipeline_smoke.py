@@ -6,7 +6,7 @@
 검증하는 것
 - 그래프 연결과 두 인터럽트(질문 답변 · 초록 확정)를 main.run 의 루프가 처리한다
 - Scope 질문 1개(예시 1번 채택) → 브리프 → supervisor → collector A/B/C 각 1라운드 → writer → 심사 1라운드 REVISE → 재작성
-  → 심사 2라운드 PASS → 도해 → reporter(LLM 0회) → cover(부제 LLM 1회, 키워드는 브리프) → final 마크다운 저장. PDF 는 생략.
+  → 심사 2라운드 PASS(라운드마다 심사 기록 저장) → 도해 → reporter(LLM 0회) → cover(부제 LLM 1회, 키워드는 브리프) → final 마크다운 저장. PDF 는 생략.
 - 실행 폴더가 runtime/<시각>/ 대신 tests/out/pipeline/<시각>/ 에 생기고 research/ · figures/ 산출물이 그 안에 남는다.
   final 마크다운은 tests/out/pipeline/final/ 에 실행 폴더와 같은 시각 이름으로 저장된다. 프로젝트의 runtime/ · final/ 은 건드리지 않는다.
 - 도해는 Node·Archify·Chromium 이 있으면 실제로 그리고(모의 스펙), 없으면 그림 없이 진행되는 경로를 확인한다.
@@ -188,6 +188,12 @@ def main_test():
         assert (run_dir / "research" / f"cards_{side}.json").exists() and (run_dir / "research" / f"evidence_{side}.md").exists()
     assert sorted(c["authors"].split(",")[0] for c in fv["arxiv_cards"]) == ["M. S. Ali", "Reza Jafari Ziarani"]
     assert fv["review_round"] == 2 and fv["rewrite_count"] == 1 and fv["review_passed"]    # 1라운드 REVISE → 재작성 → 2라운드 PASS
+    for n in (1, 2):                                                                       # 라운드별 심사 기록
+        assert (run_dir / "review" / f"round_{n}.md").exists() and (run_dir / "review" / f"plan_round_{n}.md").exists()
+    r1 = (run_dir / "review" / "round_1.md").read_text(encoding="utf-8")
+    assert "코드 판정: REVISE" in r1 and "근거가 약함" in r1                                  # 1라운드는 REVISE, A 의 지적 원문이 남는다
+    assert "코드 판정: PASS" in (run_dir / "review" / "round_2.md").read_text(encoding="utf-8")
+    assert (run_dir / "review" / "plan_round_1.md").read_text(encoding="utf-8").strip() == PLAN_V1.strip()   # 초안은 여기에만 남는다
     assert fv["review_a_passed"] and fv["review_b_passed"] and fake_llm.review_a_calls == 2
     assert fv["research_plan"].strip() == PLAN_V2.strip()                                 # 재작성본 채택
     assert fv["lint_writer"].endswith("(clean)") and fv["lint_reporter"].endswith("(clean)")

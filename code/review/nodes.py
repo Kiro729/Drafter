@@ -6,6 +6,7 @@ import re
 
 from core import clients
 from core.config import REVIEWER_B_SEARCH
+from core.paths import review_dir
 from core.prompts import PROMPTS
 from research.search import (
     _arxiv_search_block,
@@ -124,6 +125,48 @@ def reviewer_b(state: ResearchPlanState) -> ResearchPlanState:
     )
 
 
+def _verdict(ok: bool) -> str:
+    return "PASS" if ok else "REVISE"
+
+
+def save_review_round(
+    round_num: int,
+    *,
+    plan: str,
+    review_a: str,
+    review_b: str,
+    editor_raw: str,
+    a_passed: bool,
+    b_passed: bool,
+    passed: bool,
+) -> str:
+    """라운드별 심사 기록을 이번 실행 폴더에 남긴다. 저장 실패는 파이프라인을 세우지 않는다.
+
+    두 파일을 쓴다. round_N.md 는 판정과 세 피드백 원문, plan_round_N.md 는 그 라운드가 심사한 본문이다.
+    본문을 따로 두는 이유는 라운드 사이의 재작성을 파일 비교로 볼 수 있게 하기 위해서다.
+    초안은 최종본에 덮이므로 이 파일이 없으면 실행 뒤에 남지 않는다.
+    """
+    try:
+        out = review_dir()
+        record = (
+            f"# 심사 라운드 {round_num}\n\n"
+            f"- Reviewer A (내용): {_verdict(a_passed)}\n"
+            f"- Reviewer B (가독성): {_verdict(b_passed)}\n"
+            f"- 코드 판정: {_verdict(passed)} (두 리뷰어가 모두 PASS 여야 통과)\n"
+            f"- 심사한 본문: plan_round_{round_num}.md ({len(plan)}자)\n\n"
+            f"## Reviewer A — 내용 (검증 검색 포함)\n\n{review_a}\n\n"
+            f"## Reviewer B — 가독성 (검색 없음)\n\n{review_b}\n\n"
+            f"## Editor — 통합 피드백 (원문. INTEGRATED_FEEDBACK 아래가 Writer 에게 전달된다)\n\n{editor_raw}\n"
+        )
+        path = out / f"round_{round_num}.md"
+        path.write_text(record, encoding="utf-8")
+        (out / f"plan_round_{round_num}.md").write_text(plan, encoding="utf-8")
+        return str(path)
+    except OSError as exc:  # noqa: BLE001 - 기록 실패로 심사를 멈추지 않는다
+        print(f"  [Editor] 심사 기록 저장 실패 ({type(exc).__name__})")
+        return ""
+
+
 def editor(state: ResearchPlanState) -> ResearchPlanState:
     """두 피드백을 Writer 용 수정 지시로 정리한다. 통과 여부는 두 리뷰어의 VERDICT 로 코드가 결정한다."""
     round_num = state.get("review_round", 0)
@@ -158,6 +201,13 @@ def editor(state: ResearchPlanState) -> ResearchPlanState:
     if not passed:
         print("\n  [Editor] 통합 피드백 미리보기:")
         print(f"  {editor_feedback[:300]}...")
+
+    saved = save_review_round(
+        round_num, plan=state.get("research_plan", ""), review_a=current_a, review_b=current_b,
+        editor_raw=content, a_passed=a_passed, b_passed=b_passed, passed=passed,
+    )
+    if saved:
+        print(f"  [Editor] 심사 기록 저장: {saved}")
 
     return {
         "editor_feedback": editor_feedback,

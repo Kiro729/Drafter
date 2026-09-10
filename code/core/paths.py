@@ -61,6 +61,11 @@ def figures_dir() -> Path:
     return _subdir("figures")
 
 
+def review_dir() -> Path:
+    """라운드별 심사 기록: Reviewer A·B 피드백, Editor 통합 피드백, 그 라운드가 심사한 본문"""
+    return _subdir("review")
+
+
 def pdf_build_dir() -> Path:
     """PDF 조판 입력과 중간 파일"""
     return _subdir("pdf_build")

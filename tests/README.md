@@ -10,7 +10,7 @@ python tests\test_scope_stage.py          # Scope: 재서술 · 진단형 질문
 python tests\test_research.py             # Research: 출처 카드 · 브리프 직결 · 갭 루프 (Collector A, C-arXiv 경로)
 python tests\test_scholar.py              # Research: Liner 하이브리드 — 정규화 · endpoint · 429 재시도 · 초록 보강 · Collector C
 python tests\test_write_stage.py          # Write: 양식 원본(프롬프트↔검사기 일치) · 양식 검사기 · 수정 루프 · 카드 기반 참고문헌 · writer/reporter 노드 · 그래프 순서
-python tests\test_review_stage.py         # Review: A 검색·B 무검색 · VERDICT 파싱 · Editor 코드 판정 · 프롬프트 형식
+python tests\test_review_stage.py         # Review: A 검색·B 무검색 · VERDICT 파싱 · Editor 코드 판정 · 프롬프트 형식 · 심사 기록 저장
 python tests\test_finalize_stage.py       # Finalize: Reporter 표기 정리(코드) · 변경 줄 계산 · 수정본 변경 범위 가드 · reporter 노드 · cover 노드(부제·키워드)
 python tests\test_diagram_agent.py        # Finalize: Archify 도해 — 검증 9/9 · repair 루프 · plot_framework 노드 (약 1분, Node·Chromium 필요)
 python tests\test_diagram_agent.py --pdf  # + 생성한 PNG 로 PDF 조판 (tests/out/pdf_build)
